@@ -9,12 +9,13 @@ spec:
   description: |-
     Look up a ServiceNow incident by its number (e.g. INC0010005) and return the sys_id and full incident details. Use this FIRST before calling GetServiceNowIncident, PostServiceNowDiscussionEntry, AcknowledgeServiceNowIncident, or ResolveServiceNowIncident — those tools require the sys_id, not the INC number.
   functionCode: |-
-    import requests
     import json
+    import os
+    import requests
 
-    SERVICENOW_URL = "https://<SN_INSTANCE>.service-now.com"
-    SERVICENOW_USER = "admin"
-    SERVICENOW_PASS = "<SN_PASSWORD>"
+    SERVICENOW_URL = os.environ.get("SERVICENOW_URL", "https://<SN_INSTANCE>.service-now.com").rstrip("/")
+    SERVICENOW_USER = os.environ.get("SERVICENOW_USER", "admin")
+    SERVICENOW_PASS = os.environ.get("SERVICENOW_PASS", "<SN_PASSWORD>")
 
     def lookup_servicenow_incident(incident_number: str) -> dict:
         try:

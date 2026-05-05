@@ -34,6 +34,9 @@
 .PARAMETER SkipApps
     Skip web app deployment.
 
+.PARAMETER SecurityControlIgnore
+    Preserve/add the demo policy exemption tag SecurityControl=Ignore on the resource group.
+
 .EXAMPLE
     .\deploy.ps1 -ResourceGroup rg-zava -Location westus2 -SqlPassword 'MyP@ss123!'
 
@@ -50,7 +53,8 @@ param(
     [string]$AlertEmail    = '',
     [switch]$SkipInfra,
     [switch]$SkipSeed,
-    [switch]$SkipApps
+    [switch]$SkipApps,
+    [switch]$SecurityControlIgnore
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,7 +100,27 @@ $WarrantyName = "app-$Prefix-warranty"
 
 if (-not $SkipInfra) {
     Write-Step "Creating resource group: $ResourceGroup in $Location"
-    az group create --name $ResourceGroup --location $Location --output none
+    $tagArgs = @()
+    if ($SecurityControlIgnore) {
+        $tagArgs += 'SecurityControl=Ignore'
+    } else {
+        try {
+            $existingTags = az group show --name $ResourceGroup --query tags -o json 2>$null | ConvertFrom-Json
+            if ($existingTags) {
+                foreach ($tag in $existingTags.PSObject.Properties) {
+                    $tagArgs += "$($tag.Name)=$($tag.Value)"
+                }
+            }
+        } catch {
+            # Resource group does not exist yet; create it without tags.
+        }
+    }
+
+    if ($tagArgs.Count -gt 0) {
+        az group create --name $ResourceGroup --location $Location --tags $tagArgs --output none
+    } else {
+        az group create --name $ResourceGroup --location $Location --output none
+    }
     Write-Ok "Resource group ready"
 
     Write-Step "Deploying Bicep template (this may take 3-5 minutes)..."
@@ -214,6 +238,10 @@ if (-not $SkipApps) {
 
     az webapp deploy --resource-group $ResourceGroup --name $AppName `
         --src-path $zipPath --type zip --output none
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Main app deployment failed"
+        exit 1
+    }
     Write-Ok "Main app deployed: https://$AppName.azurewebsites.net"
 
     # Clean up
@@ -230,6 +258,10 @@ if (-not $SkipApps) {
 
     az webapp deploy --resource-group $ResourceGroup --name $ItPortalName `
         --src-path $itZipPath --type zip --output none
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "IT portal deployment failed"
+        exit 1
+    }
     Write-Ok "IT Portal deployed: https://$ItPortalName.azurewebsites.net"
 
     Remove-Item $itZipPath -Force -ErrorAction SilentlyContinue
@@ -244,6 +276,10 @@ if (-not $SkipApps) {
 
     az webapp deploy --resource-group $ResourceGroup --name $WarrantyName `
         --src-path $warZipPath --type zip --output none
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Warranty API deployment failed"
+        exit 1
+    }
     Write-Ok "Warranty API deployed: https://$WarrantyName.azurewebsites.net"
 
     Remove-Item $warZipPath -Force -ErrorAction SilentlyContinue

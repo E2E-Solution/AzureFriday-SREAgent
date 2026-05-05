@@ -1,11 +1,14 @@
 """One-time script to expand Products table to ~2M rows for demo."""
-import pymssql, time
+import os
+import time
+
+import pymssql
 
 conn = pymssql.connect(
-    server='sql-zava.database.windows.net',
-    user='<SQL_ADMIN_USER>',
-    password='<SQL_PASSWORD>',
-    database='sqldb-zava',
+    server=os.environ.get('ZAVA_SQL_SERVER', 'sql-zava77ac.database.windows.net'),
+    user=os.environ.get('ZAVA_SQL_USER', 'sqladmin'),
+    password=os.environ.get('ZAVA_SQL_PASSWORD', '<SQL_PASSWORD>'),
+    database=os.environ.get('ZAVA_SQL_DATABASE', 'sqldb-zava77ac'),
     login_timeout=10,
     timeout=300,
 )

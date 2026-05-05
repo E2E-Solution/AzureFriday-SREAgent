@@ -27,7 +27,7 @@ spec:
     - If device not found -> post a discussion entry asking to verify the serial number.
 
     ## Step 3: Submit Laptop Request via Browser Operator
-    Navigate to https://app-zava-itportal.azurewebsites.net and fill the laptop request form with:
+    Navigate to https://app-zava77ac-itportal.azurewebsites.net and fill the laptop request form with:
     - Employee Name: from the ticket
     - Employee Email: from the ticket
     - Employee ID: from the ticket

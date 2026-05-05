@@ -61,12 +61,12 @@ if sys.platform == "win32":
     import msvcrt
 
 # ── Config (override with env vars) ────────────────────────
-SQL_SERVER   = os.environ.get("ZAVA_SQL_SERVER",   "sql-zava.database.windows.net")
-SQL_DATABASE = os.environ.get("ZAVA_SQL_DATABASE", "sqldb-zava")
-SQL_USER     = os.environ.get("ZAVA_SQL_USER",     "<SQL_ADMIN_USER>")
+SQL_SERVER   = os.environ.get("ZAVA_SQL_SERVER",   "sql-zava77ac.database.windows.net")
+SQL_DATABASE = os.environ.get("ZAVA_SQL_DATABASE", "sqldb-zava77ac")
+SQL_USER     = os.environ.get("ZAVA_SQL_USER",     "sqladmin")
 SQL_PASSWORD = os.environ.get("ZAVA_SQL_PASSWORD", "<SQL_PASSWORD>")
 
-APP_URL      = os.environ.get("ZAVA_APP_URL",      "https://app-zava.azurewebsites.net")
+APP_URL      = os.environ.get("ZAVA_APP_URL",      "https://app-zava77ac.azurewebsites.net")
 HEALTH_URL   = f"{APP_URL}/health"
 
 SN_URL       = os.environ.get("ZAVA_SN_URL",  "https://<SN_INSTANCE>.service-now.com")
