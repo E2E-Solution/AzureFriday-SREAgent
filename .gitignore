@@ -7,3 +7,7 @@ __pycache__/
 .env
 node_modules/
 .playwright-mcp/
+
+# Local srectl nupkg download folder — never commit package files
+.artifacts/
+*.nupkg

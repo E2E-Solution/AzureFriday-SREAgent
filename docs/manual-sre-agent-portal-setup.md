@@ -2,9 +2,11 @@
 
 Use this guide when `srectl` is unavailable or cannot authenticate to the private NuGet feed. It maps the local files under `sre-config` to manual objects in `https://sre.azure.com`.
 
+If `srectl` is installed, prefer the repeatable CLI workflow in [srectl-deployment-guide.md](srectl-deployment-guide.md). That guide documents the manual Azure Artifacts download from `https://dev.azure.com/msazure/One/_artifacts/feed/SREAgentCli`, the `srectl profile` flow, and the commands used to deploy Agent 2 and Agent 3.
+
 ## Demo Environment
 
-- Subscription: `ME-MngEnvMCAP352465-sithukyaw-2`
+- Subscription: `<YOUR-SUBSCRIPTION-NAME>`
 - Application resource group: `rg-zava77ac`
 - Application region: `centralus`
 - Main API: `https://app-zava77ac.azurewebsites.net`
@@ -39,7 +41,7 @@ Agent 1 covers SQL performance, blocking diagnosis, deployment validation, alert
 2. Select **Create Agent**.
 3. Use these values:
    - Name: `zava-sreagent-1`
-   - Subscription: `ME-MngEnvMCAP352465-sithukyaw-2`
+   - Subscription: `<YOUR-SUBSCRIPTION-NAME>`
    - Resource group: create/use an SRE-agent resource group, or use `rg-zava77ac` for the demo.
    - Region/model provider: choose any region/provider combination available in the portal.
 4. Create the agent and wait for provisioning to succeed.
@@ -271,7 +273,7 @@ Agent 2 handles ServiceNow incident lookup, warranty validation, IT portal lapto
 2. Select **Create Agent**.
 3. Use these values:
    - Name: `zava-sreagent-2`
-   - Subscription: `ME-MngEnvMCAP352465-sithukyaw-2`
+   - Subscription: `<YOUR-SUBSCRIPTION-NAME>`
    - Resource group: create/use an SRE-agent resource group, or use `rg-zava77ac` for the demo.
    - Region/model provider: choose any available portal combination.
 4. Create the agent and wait for provisioning to succeed.

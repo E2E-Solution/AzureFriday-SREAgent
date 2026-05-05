@@ -66,7 +66,7 @@
 | **.NET SDK** | 8.0+ | `winget install Microsoft.DotNet.SDK.8` |
 | **Python** | 3.11+ | `winget install Python.Python.3.12` |
 | **Node.js** | 18+ | `winget install OpenJS.NodeJS.LTS` |
-| **srectl CLI** | latest | [Install docs](https://learn.microsoft.com/azure/sre-agent) |
+| **srectl CLI** | 1.0.38+ | Manual download from the internal [SREAgentCli Azure Artifacts feed](https://dev.azure.com/msazure/One/_artifacts/feed/SREAgentCli); see [docs/srectl-deployment-guide.md](docs/srectl-deployment-guide.md) |
 | **ServiceNow PDI** | — | [Free instance](https://developer.servicenow.com/) |
 
 > **Optional:** SQL Server Management Studio (SSMS) or Azure Data Studio for database inspection.
@@ -124,6 +124,7 @@ AzureFriday-SREAgent/
 ├── infra/                          # Infrastructure-as-Code
 │   ├── main.bicep                  # All Azure resources (SQL, Apps, Monitoring)
 │   ├── main.bicepparam             # Default parameter values
+│   ├── sre-agent.bicep             # Reusable SRE Agent resource deployment
 │   ├── deploy.ps1                  # One-click deployment script
 │   └── seed-database.sql           # Products, Orders, OrderItems seed data
 │
@@ -323,56 +324,70 @@ python simulator/demo.py
 
 ## SRE Agent Configuration
 
-### Step 1: Create Agents at sre.azure.com
+The demo supports two setup paths:
 
-1. Navigate to [https://sre.azure.com](https://sre.azure.com)
-2. Click **"Create Agent"**
-3. Create **Agent 1 — SQL & App Performance:**
-   - Name: `zava-sreagent-1`
-   - Attach to resource group: `rg-zava`
-   - Description: "Monitors SQL performance, handles deployments, manages app health"
-4. Create **Agent 2 — IT Support & ServiceNow:**
-   - Name: `zava-sreagent-2`
-   - Attach to resource group: `rg-zava`
-   - Description: "Handles IT support tickets, warranty lookups, ServiceNow integration"
+- **Recommended for repeatable demos:** create SRE Agent resources with `infra/sre-agent.bicep`, then apply local configuration with `srectl`. Use [docs/srectl-deployment-guide.md](docs/srectl-deployment-guide.md).
+- **Fallback/manual path:** create and configure objects in `https://sre.azure.com`. Use [docs/manual-sre-agent-portal-setup.md](docs/manual-sre-agent-portal-setup.md).
 
-### Step 2: Configure MCP Connectors
+The `srectl` version used during implementation was installed manually from the internal Azure Artifacts feed at `https://dev.azure.com/msazure/One/_artifacts/feed/SREAgentCli`.
 
-See [MCP Connector Setup](#mcp-connector-setup) below.
+This CLI version uses profiles and resource URLs:
 
-### Step 3: Apply Skills, Hooks, and Agents via srectl
-
-```bash
-# Install srectl (if not already installed)
-# See https://learn.microsoft.com/azure/sre-agent for install instructions
-
-# Select Agent 1 context
-srectl config set-context <agent-1-id>
-
-# Apply all Agent 1 configurations
-srectl apply -f sre-config/agent1/skills/
-srectl apply -f sre-config/agent1/hooks/
-srectl apply -f sre-config/agent1/agents/
-srectl apply -f sre-config/agent1/tools/
-srectl apply -f sre-config/agent1/scheduledtasks/
-
-# Switch to Agent 2
-srectl config set-context <agent-2-id>
-
-# Apply Agent 2 configurations
-srectl apply -f sre-config/agent2/agents/
-srectl apply -f sre-config/agent2/tools/
+```powershell
+srectl profile create --name zava-agent2 --url "https://<agent-2-endpoint>" --set-current
+srectl init --resource-url "https://<agent-2-endpoint>"
+srectl profile set --name zava-agent2
+srectl status
 ```
 
-### Step 4: Set Up Incident Handlers and HTTP Triggers
+Do not use older `srectl config set-context` commands with this version.
+
+For the deployed `zava77ac` environment:
+
+- `zava-sreagent-2` is the IT support and ServiceNow agent.
+- `zava-sreagent-3` is the clean redeploy target for the SQL and app performance configuration originally used by Agent 1.
+- `zava-sreagent-1` remains available as the original Agent 1 resource.
+
+Apply Agent 2 configuration:
+
+```powershell
+srectl profile set --name zava-agent2
+Push-Location .\sre-config\agent2
+srectl tool apply --name CheckWarranty
+srectl tool apply --name LookupServiceNowIncident
+srectl agent validate --name it-support-handler
+srectl agent apply --name it-support-handler
+Pop-Location
+```
+
+Apply Agent 3 configuration:
+
+```powershell
+srectl profile set --name zava-agent3
+Push-Location .\sre-config\agent1
+srectl tool apply --name AssessChangeRisk
+srectl skill apply --name sql-query-diagnosis
+srectl skill apply --name sql-performance-fix
+srectl skill apply --name sql-blocking-diagnosis
+srectl skill apply --name sql-blocking-fix
+srectl hook apply --file .\hooks\sql-write-guard.yaml
+srectl hook apply --file .\hooks\change-risk-assessor.yaml
+srectl agent apply --name sql-performance-investigator
+srectl agent apply --name deployment-validator
+srectl agent apply --name deployment-validator-gh
+srectl scheduledtask apply --file .\scheduledtasks\weekly-cost-report\weekly-cost-report.yaml
+Pop-Location
+```
+
+### Set Up Incident Handlers and HTTP Triggers
 
 **HTTP Trigger (for GitHub Actions):**
-1. In the SRE Agent portal, go to Agent 1 → Triggers
+1. In the SRE Agent portal, go to the SQL/app SRE agent (`zava-sreagent-1` or the clean redeploy target `zava-sreagent-3`) → Triggers
 2. Create a new HTTP trigger
-3. Copy the trigger URL into `.github/workflows/deploy.yml` (line 79)
+3. Copy the trigger URL into your deployment workflow or use it manually for Scenario 3
 
 **Alert Handler (for Azure Monitor):**
-1. In the SRE Agent portal, go to Agent 1 → Alert Handlers
+1. In the SRE Agent portal, go to the SQL/app SRE agent (`zava-sreagent-1` or `zava-sreagent-3`) → Alert Handlers
 2. Link the DTU, HTTP 5xx, and Health Check alert rules
 3. SRE Agent will automatically activate when these alerts fire
 
@@ -380,11 +395,11 @@ srectl apply -f sre-config/agent2/tools/
 
 ## MCP Connector Setup
 
-### SQL MCP Connector (Agent 1)
+### SQL MCP Connector (Agent 1 or Agent 3)
 
 The SQL MCP connector allows SRE Agent to query and modify the SQL database.
 
-1. In SRE Agent portal → Agent 1 → Tools → Add MCP Connector
+1. In SRE Agent portal → SQL/app SRE agent → Tools → Add MCP Connector
 2. Package: `mssql-mcp@latest`
 3. Environment variables:
 
@@ -392,14 +407,14 @@ The SQL MCP connector allows SRE Agent to query and modify the SQL database.
 |----------|-------|
 | `MSSQL_CONNECTION_STRING` | `Server=tcp:sql-zava.database.windows.net,1433;Database=sqldb-zava;User ID=<SQL_USER>;Password=<your-password>;Encrypt=True;TrustServerCertificate=False;` |
 
-### GitHub MCP Connector (Agent 1)
+### GitHub MCP Connector (Agent 1 or Agent 3)
 
 The GitHub MCP connector allows SRE Agent to inspect repositories, commits, and pull requests.
 
 1. Create a GitHub Personal Access Token (PAT):
    - Go to [github.com/settings/tokens](https://github.com/settings/tokens)
    - Create a fine-grained token with `repo` read access to your fork
-2. In SRE Agent portal → Agent 1 → Tools → Add MCP Connector
+2. In SRE Agent portal → SQL/app SRE agent → Tools → Add MCP Connector
 3. Package: `@github/github-mcp-server`
 4. Environment variables:
 
